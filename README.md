@@ -1,10 +1,10 @@
-# 📸 Lucientes
+# 🎨 Lucientes
 
 **Lucientes is a simple web service for converting HTML files into high quality images.**
 
 This project allows users to convert HTML content into images in formats like PNG, JPEG, or WEBP, facilitating easier sharing and accessibility of digital information. It is built with Node.js, Express, and Puppeteer to provide a seamless and efficient service.
 
-## 🌟 About Maximiliana
+## 💚 About Maximiliana
 
 Lucientes is developed by the Spanish startup Maximiliana to support the "Atentamente, tu nieto" campaign. Our goal is to bridge the digital gap for elderly people by providing an easy-to-use mobile experience. Maximiliana creates innovative solutions to connect the elderly with their families, ensuring everyone can communicate effortlessly.
 
