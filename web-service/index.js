@@ -11,17 +11,56 @@ const __dirname = dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const API_KEY = process.env.API_KEY;
+
+const log = (severity, message, data = {}) => {
+  const entry = {
+    severity,
+    message,
+    ...data,
+  };
+  if (severity === "ERROR" || severity === "CRITICAL") {
+    console.error(JSON.stringify(entry));
+  } else {
+    console.log(JSON.stringify(entry));
+  }
+};
 
 const upload = multer({ dest: "uploads/" });
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.use((req, res, next) => {
+  if (!API_KEY) return next();
+  const provided = req.header("x-api-key");
+  if (provided !== API_KEY) {
+    log("WARNING", "Unauthorized request (invalid or missing API Key)", {
+      path: req.path,
+      method: req.method,
+      ip: req.ip,
+      userAgent: req.get("user-agent"),
+    });
+    return res.status(401).json({
+      error: "Invalid or missing API Key (use x-api-key header)",
+    });
+  }
+  next();
+});
+
 const validFormats = ["png", "jpeg", "webp"];
 
+const parseBoolean = (value) => {
+  if (value === undefined) return false;
+  if (typeof value === "boolean") return value;
+  const v = String(value).toLowerCase();
+  return ["1", "true", "yes", "on"].includes(v);
+};
+
 const validateRequest = (req) => {
-  const { width, height, scaleFactor, format } = req.body;
+  const { width, height, scaleFactor, format, transparent } = req.body;
   const imageFormat = format || "png";
+  const transparentRequested = parseBoolean(transparent);
 
   if (!req.file) {
     return { isValid: false, message: "File is required" };
@@ -46,18 +85,32 @@ const validateRequest = (req) => {
       )}`,
     };
   }
-  return { isValid: true };
+  if (transparentRequested && imageFormat === "jpeg") {
+    return {
+      isValid: false,
+      message:
+        "Transparent background is only supported for png or webp formats",
+    };
+  }
+  return { isValid: true, transparentRequested };
 };
 
 app.post("/html-to-image", upload.single("file"), async (req, res) => {
   const validation = validateRequest(req);
   if (!validation.isValid) {
+    log("WARNING", "Invalid request parameters", {
+      path: req.path,
+      method: req.method,
+      ip: req.ip,
+      error: validation.message,
+    });
     return res.status(400).send(validation.message);
   }
 
   const { width, height, scaleFactor, format } = req.body;
   const imageFormat = format || "png";
   const htmlFilePath = path.join(__dirname, req.file.path);
+  const transparentRequested = validation.transparentRequested;
 
   try {
     const browser = await puppeteer.launch({
@@ -82,23 +135,40 @@ app.post("/html-to-image", upload.single("file"), async (req, res) => {
       type: imageFormat,
       fullPage: true,
       encoding: "binary",
+      ...(transparentRequested ? { omitBackground: true } : {}),
     });
 
     await browser.close();
     fs.unlinkSync(htmlFilePath);
 
-    console.log(
-      `Image generated successfully with parameters: width=${viewportWidth}, height=${viewportHeight}, scaleFactor=${viewportscaleFactor}, format=${imageFormat}`
-    );
+    log("INFO", "Image generated successfully", {
+      width: viewportWidth,
+      height: viewportHeight,
+      scaleFactor: viewportscaleFactor,
+      format: imageFormat,
+      transparent: transparentRequested,
+      ip: req.ip,
+    });
 
     res.set("Content-Type", `image/${imageFormat}`);
     res.send(screenshot);
   } catch (error) {
-    console.error(`Error processing request: ${error.message}`);
+    log("ERROR", "Error processing request", {
+      error: error.message,
+      stack: error.stack,
+      path: req.path,
+      ip: req.ip,
+    });
     res.status(500).send("Internal Server Error");
   }
 });
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Server is running at http://0.0.0.0:${PORT}`);
+  log("INFO", "Server started", {
+    url: `http://0.0.0.0:${PORT}`,
+    apiKeyProtection: Boolean(API_KEY),
+  });
+  if (API_KEY) {
+    log("NOTICE", "API Key protection enabled (header only)");
+  }
 });
