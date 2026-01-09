@@ -1,8 +1,8 @@
 # 🎨 Lucientes
 
-**Lucientes is a simple web service for converting HTML files into high quality images.**
+**Lucientes is a simple web service for converting HTML files into high quality images and PDFs.**
 
-This project allows users to convert HTML content into images in formats like PNG, JPEG, or WEBP, facilitating easier sharing and accessibility of digital information. It is built with Node.js, Express, and Puppeteer to provide a seamless and efficient service.
+This project allows users to convert HTML content into images (PNG, JPEG, WEBP) or PDF documents, facilitating easier sharing and accessibility of digital information. It is built with Node.js, Express, and Puppeteer to provide a seamless and efficient service.
 
 ## 💚 About Maximiliana
 
@@ -11,6 +11,7 @@ Lucientes is developed by the Spanish startup Maximiliana to support the "Atenta
 ## ✨ Features
 
 - Convert HTML to PNG, JPEG, or WEBP images.
+- Convert HTML to PDF with pixel-based dimensions.
 - Optional transparent background (PNG / WEBP).
 - API Key protection (optional) via `API_KEY` env var.
 - Simple and intuitive API.
@@ -103,6 +104,45 @@ Parameters (multipart form fields unless stated otherwise):
      -F "transparent=1" \
      --output output.webp
    ```
+
+### HTML to PDF
+
+Parameters (multipart form fields):
+- `file` (required): HTML file.
+- `width` (optional, number, default 1920): viewport width in pixels
+- `height` (optional, number, default 1080): viewport height in pixels
+- `landscape` (optional: true/false, default false)
+- `printBackground` (optional: true/false, default true)
+
+**Note:** `scaleFactor` is not applicable for PDF output (PDFs are vector-based).
+
+4. **Convert HTML to PDF**:
+
+   ```sh
+   curl -X POST http://localhost:8080/html-to-pdf \
+     -H "x-api-key: MY_SECRET_KEY" \
+     -F "file=@path/to/your/test.html" \
+     -F "width=1920" \
+     -F "height=1080" \
+     --output output.pdf
+   ```
+
+5. **Convert HTML to PDF (landscape, no background)**:
+
+   ```sh
+   curl -X POST http://localhost:8080/html-to-pdf \
+     -H "x-api-key: MY_SECRET_KEY" \
+     -F "file=@path/to/your/test.html" \
+     -F "width=1920" \
+     -F "height=1080" \
+     -F "landscape=true" \
+     -F "printBackground=false" \
+     --output output.pdf
+   ```
+
+> **Technical note:** Puppeteer internally uses 72 DPI for PDF generation while viewports use 96 DPI.
+> Lucientes automatically compensates for this difference so that the pixel dimensions you specify
+> produce consistent results with the image endpoint. See [puppeteer#3357](https://github.com/puppeteer/puppeteer/issues/3357) for details.
 
 ### Environment Variables
 

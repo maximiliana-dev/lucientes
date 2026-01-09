@@ -50,6 +50,9 @@ app.use((req, res, next) => {
 
 const validFormats = ["png", "jpeg", "webp"];
 
+// https://github.com/puppeteer/puppeteer/issues/3357
+const PDF_DPI_CORRECTION_FACTOR = 96 / 72;
+
 const parseBoolean = (value) => {
   if (value === undefined) return false;
   if (typeof value === "boolean") return value;
@@ -93,6 +96,21 @@ const validateRequest = (req) => {
     };
   }
   return { isValid: true, transparentRequested };
+};
+
+const validatePdfRequest = (req) => {
+  const { width, height } = req.body;
+
+  if (!req.file) {
+    return { isValid: false, message: "File is required" };
+  }
+  if (width && (isNaN(width) || parseInt(width, 10) <= 0)) {
+    return { isValid: false, message: "Width must be a positive number" };
+  }
+  if (height && (isNaN(height) || parseInt(height, 10) <= 0)) {
+    return { isValid: false, message: "Height must be a positive number" };
+  }
+  return { isValid: true };
 };
 
 app.post("/html-to-image", upload.single("file"), async (req, res) => {
@@ -154,6 +172,74 @@ app.post("/html-to-image", upload.single("file"), async (req, res) => {
     res.send(screenshot);
   } catch (error) {
     log("ERROR", "Error processing request", {
+      error: error.message,
+      stack: error.stack,
+      path: req.path,
+      ip: req.ip,
+    });
+    res.status(500).send("Internal Server Error");
+  }
+});
+
+app.post("/html-to-pdf", upload.single("file"), async (req, res) => {
+  const validation = validatePdfRequest(req);
+  if (!validation.isValid) {
+    log("WARNING", "Invalid request parameters", {
+      path: req.path,
+      method: req.method,
+      ip: req.ip,
+      error: validation.message,
+    });
+    return res.status(400).send(validation.message);
+  }
+
+  const { width, height, landscape, printBackground } = req.body;
+  const htmlFilePath = path.join(__dirname, req.file.path);
+
+  const viewportWidth = width ? parseInt(width, 10) : 1920;
+  const viewportHeight = height ? parseInt(height, 10) : 1080;
+  const landscapeMode = parseBoolean(landscape);
+  const printBg = printBackground === undefined ? true : parseBoolean(printBackground);
+
+  try {
+    const browser = await puppeteer.launch({
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+    const page = await browser.newPage();
+
+    await page.setViewport({
+      width: viewportWidth,
+      height: viewportHeight,
+    });
+
+    const htmlContent = fs.readFileSync(htmlFilePath, "utf8");
+    await page.setContent(htmlContent);
+
+    const pdfWidth = Math.round(viewportWidth * PDF_DPI_CORRECTION_FACTOR);
+    const pdfHeight = Math.round(viewportHeight * PDF_DPI_CORRECTION_FACTOR);
+
+    const pdf = await page.pdf({
+      width: `${pdfWidth}px`,
+      height: `${pdfHeight}px`,
+      landscape: landscapeMode,
+      printBackground: printBg,
+    });
+
+    await browser.close();
+    fs.unlinkSync(htmlFilePath);
+
+    log("INFO", "PDF generated successfully", {
+      width: viewportWidth,
+      height: viewportHeight,
+      landscape: landscapeMode,
+      printBackground: printBg,
+      ip: req.ip,
+    });
+
+    res.set("Content-Type", "application/pdf");
+    res.send(pdf);
+  } catch (error) {
+    log("ERROR", "Error processing PDF request", {
       error: error.message,
       stack: error.stack,
       path: req.path,
