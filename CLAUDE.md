@@ -19,6 +19,9 @@ docker run -p 8080:3000 lucientes
 # With API key protection
 docker run -p 8080:3000 -e API_KEY=secret lucientes
 
+# With JavaScript enabled
+docker run -p 8080:3000 -e API_KEY=secret -e ALLOW_JAVASCRIPT=true lucientes
+
 # Test endpoints
 curl -X POST http://localhost:8080/html-to-image -F "file=@test.html" --output out.png
 curl -X POST http://localhost:8080/html-to-pdf -F "file=@test.html" --output out.pdf
@@ -38,6 +41,13 @@ PDF generation applies a DPI correction factor (96/72) to compensate for Puppete
 
 - `PORT` - server port (default 3000)
 - `API_KEY` - if set, requires `x-api-key` header on all requests
+
+### Security Settings
+
+- `ALLOW_JAVASCRIPT` - set to "true" to enable JS execution in HTML (default: disabled)
+- `ALLOW_EXTERNAL_REQUESTS` - set to "true" to allow network requests from rendered pages (default: blocked)
+- `MAX_DIMENSION` - maximum width/height in pixels (default: 4096)
+- `PAGE_TIMEOUT_MS` - page rendering timeout in milliseconds (default: 30000)
 
 ## CI/CD
 

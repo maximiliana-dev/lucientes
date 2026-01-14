@@ -17,7 +17,12 @@ Lucientes is developed by the Spanish startup Maximiliana to support the "Atenta
 - Simple and intuitive API.
 - Built with Node.js, Express, and Puppeteer.
 
-## 🚀 Getting Started
+## ⚠️ Security warning
+
+This service renders arbitrary HTML in a headless browser. **This is inherently risky.**
+Lucientes includes some security layers to mitigate these risks, but no defense is perfect. **Use with caution and always require API key authentication in production.**
+
+## 🚀 Getting started
 
 ### Prerequisites
 
@@ -33,14 +38,21 @@ Make sure you have Docker installed on your system.
 
 2. **Run the Docker container**:
    ```sh
-   docker run -p 8080:3000 --env PORT=3000 maximiliana/lucientes
+   docker run -p 8080:3000 maximiliana/lucientes
    ```
 
-3. **Run with API Key protection**:
+3. **Run with API Key protection (recommended for production)**:
    ```sh
    docker run -p 8080:3000 \
-     -e PORT=3000 \
      -e API_KEY=MY_SECRET_KEY \
+     maximiliana/lucientes
+   ```
+
+4. **Run with JavaScript enabled**:
+   ```sh
+   docker run -p 8080:3000 \
+     -e API_KEY=MY_SECRET_KEY \
+     -e ALLOW_JAVASCRIPT=true \
      maximiliana/lucientes
    ```
 
@@ -146,8 +158,29 @@ Parameters (multipart form fields):
 
 ### Environment Variables
 
-- `PORT`: The port on which the server will run (default 3000).
-- `API_KEY`: If set, enables authentication; each request must include `x-api-key` header.
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3000` | Server port |
+| `API_KEY` | (none) | If set, requires `x-api-key` header on all requests |
+| `ALLOW_JAVASCRIPT` | `false` | Set to `true` to enable JavaScript execution in HTML |
+| `ALLOW_EXTERNAL_REQUESTS` | `false` | Set to `true` to allow network requests from rendered pages |
+| `MAX_DIMENSION` | `4096` | Maximum width/height in pixels |
+| `PAGE_TIMEOUT_MS` | `30000` | Page rendering timeout in milliseconds |
+
+### Security measures
+
+Lucientes implements several layers of security:
+
+| Protection | Description |
+|------------|-------------|
+| **Non-root user** | The container runs as an unprivileged user (`pptruser`). |
+| **JavaScript disabled** | JS execution is off by default. Enable only if needed with `ALLOW_JAVASCRIPT=true`. |
+| **Network requests blocked** | External requests (fetch, images, iframes) are blocked by default. Enable with `ALLOW_EXTERNAL_REQUESTS=true`. |
+| **Dimension limits** | Prevents memory exhaustion from extremely large images. |
+| **Timeouts** | Prevents infinite loops and resource exhaustion. |
+| **Timing-safe API key comparison** | Prevents timing attacks on API key validation. |
+
+> **Note:** Chrome sandbox is disabled (`--no-sandbox`) for compatibility with containerized environments like Cloud Run. The other security measures compensate for this.
 
 ## 🖼️ Trivia
 
