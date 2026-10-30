@@ -42,9 +42,6 @@ const secureCompare = (a, b) => {
 
 const upload = multer({ dest: "uploads/" });
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
 app.use((req, res, next) => {
   if (!API_KEY) return next();
   const provided = req.header("x-api-key");
@@ -61,6 +58,9 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 const validFormats = ["png", "jpeg", "webp"];
 
